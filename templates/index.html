@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Subir Archivo de Cubicaje</title>
+</head>
+<body>
+    <h1>Sube tu Archivo de Cubicaje 🚛📦</h1>
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <label>Selecciona el archivo Excel (.xlsx):</label><br>
+        <input type="file" name="file" accept=".xlsx" required><br><br>
+
+        <label>Capacidad del contenedor (en pallets):</label><br>
+        <input type="number" name="capacidad" value="20" required><br><br>
+
+        <input type="submit" value="Subir y Optimizar">
+    </form>
+
+</body>
+</html>
+
