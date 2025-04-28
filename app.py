@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, send_file
 import pandas as pd
+import os
 
 app = Flask(__name__)
 
@@ -22,10 +23,9 @@ def upload_file():
             'CBL': [21, 15],
             'TAC': [21],
             'HCI': [22, 11],
-	    'PRM': [22, 11],
+            'PRM': [22, 11],
             'IDL': [22, 10],
-            'WYB': [21, 10],	
-            # Agrega más BCs aquí si necesitas
+            'WYB': [21, 10],
         }
 
         return render_template('select_capacities.html', bcs=bcs, capacidad_default=capacidad_default)
@@ -120,28 +120,46 @@ def optimize():
     # Guardamos en un archivo Excel
     df_resultado.to_excel('resultado_cubicaje.xlsx', index=False)
 
-    # Crear HTML de los contenedores
+    # Crear HTML bonito de los contenedores con Bootstrap
     html_resultado = ''
     for i, contenedor_df in enumerate(contenedores, start=1):
         bc_name = contenedor_df['BC'].iloc[0]
-        html_resultado += f'<h2>Contenedor {i} - BC: {bc_name}</h2>'
-        html_resultado += contenedor_df.to_html(classes='table table-striped', index=False)
-        html_resultado += '<br>'
+        table_html = contenedor_df.to_html(classes='table table-bordered table-striped', index=False)
+        
+        html_resultado += f'''
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">Contenedor {i} - BC: {bc_name}</h3>
+                {table_html}
+            </div>
+        </div>
+        '''
 
     return f'''
-    <h1>Optimización por BC y Capacidades Completada ✅</h1>
-    {html_resultado}
-    <br>
-    <a href="/download">📥 Descargar Resultado en Excel</a>
-    <br><br>
-    <a href="/">Subir otro archivo</a>
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Optimización Completada</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-light">
+        <div class="container py-5">
+            <h1 class="mb-4 text-center">Optimización por BC y Capacidades Completada ✅</h1>
+            {html_resultado}
+            <div class="text-center mt-4">
+                <a href="/download" class="btn btn-success btn-lg">📥 Descargar Resultado en Excel</a>
+                <a href="/" class="btn btn-secondary btn-lg ms-3">Subir otro archivo</a>
+            </div>
+        </div>
+    </body>
+    </html>
     '''
 
 # Ruta para descargar el archivo Excel
 @app.route('/download')
 def download_file():
     return send_file('resultado_cubicaje.xlsx', as_attachment=True)
-import os
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
