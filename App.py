@@ -1,0 +1,146 @@
+from flask import Flask, render_template, request, send_file
+import pandas as pd
+
+app = Flask(__name__)
+
+# Ruta principal para subir archivo
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Ruta para procesar archivo subido
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    file = request.files['file']
+    if file.filename.endswith('.xlsx'):
+        df = pd.read_excel(file)
+        df.to_pickle('temp_df.pkl')  # Guardamos temporalmente
+
+        bcs = df['BC'].unique().tolist()
+
+        capacidad_default = {
+            'CBL': [21, 15],
+            'TAC': [21],
+            'HCI': [22, 11],
+	    'PRM': [22, 11],
+            'IDL': [22, 10],
+            'WYB': [21, 10],	
+            # Agrega más BCs aquí si necesitas
+        }
+
+        return render_template('select_capacities.html', bcs=bcs, capacidad_default=capacidad_default)
+    else:
+        return 'Por favor sube un archivo .xlsx válido ❌'
+
+# Ruta para optimizar el cubicaje
+@app.route('/optimize', methods=['POST'])
+def optimize():
+    df = pd.read_pickle('temp_df.pkl')
+    df['Pallets restantes'] = df['Pallets']
+
+    capacidad_por_bc = {}
+    for bc in df['BC'].unique():
+        capacidades = request.form.get(bc).split(',')
+        capacidad_por_bc[bc] = [int(c.strip()) for c in capacidades if c.strip()]
+
+    contenedores = []
+    contenedor_num = 1
+
+    for bc in df['BC'].unique():
+        grupo_bc = df[df['BC'] == bc].copy()
+        capacidades = sorted(capacidad_por_bc[bc], reverse=True)
+
+        while grupo_bc['Pallets restantes'].sum() > 0:
+            for capacidad_contenedor in capacidades:
+                pallets_actuales = 0
+                seleccionados = []
+
+                grupo_bc = grupo_bc.sort_values(['Lead time', 'Pallets restantes'], ascending=[True, False])
+
+                if grupo_bc[grupo_bc['Pallets restantes'] > 0].empty:
+                    break
+
+                lead_time_objetivo = grupo_bc[grupo_bc['Pallets restantes'] > 0]['Lead time'].iloc[0]
+
+                for idx, row in grupo_bc.iterrows():
+                    pallets_disponibles = row['Pallets restantes']
+                    if pallets_disponibles <= 0:
+                        continue
+
+                    mismo_lead_time = row['Lead time'] == lead_time_objetivo
+
+                    if pallets_actuales >= capacidad_contenedor:
+                        break
+
+                    if mismo_lead_time or pallets_actuales < capacidad_contenedor:
+                        espacio_restante = capacidad_contenedor - pallets_actuales
+
+                        if pallets_disponibles <= espacio_restante:
+                            pallets_asignados = pallets_disponibles
+                            cajas_asignadas = pallets_asignados * row['Cajas por Pallet']
+
+                            seleccionados.append({
+                                'SKU': row['SKU'],
+                                'BC': row['BC'],
+                                'Pallets asignados': pallets_asignados,
+                                'Cajas asignadas': cajas_asignadas,
+                                'Lead time': row['Lead time'],
+                                'Contenedor': contenedor_num
+                            })
+                            pallets_actuales += pallets_asignados
+                            grupo_bc.at[idx, 'Pallets restantes'] = 0
+                            df.at[idx, 'Pallets restantes'] = 0
+                        else:
+                            pallets_asignados = espacio_restante
+                            cajas_asignadas = pallets_asignados * row['Cajas por Pallet']
+
+                            seleccionados.append({
+                                'SKU': row['SKU'],
+                                'BC': row['BC'],
+                                'Pallets asignados': pallets_asignados,
+                                'Cajas asignadas': cajas_asignadas,
+                                'Lead time': row['Lead time'],
+                                'Contenedor': contenedor_num
+                            })
+                            pallets_actuales += pallets_asignados
+                            grupo_bc.at[idx, 'Pallets restantes'] -= pallets_asignados
+                            df.at[idx, 'Pallets restantes'] -= pallets_asignados
+                            break
+
+                if seleccionados:
+                    contenedores.append(pd.DataFrame(seleccionados))
+                    contenedor_num += 1
+                    break
+            else:
+                break
+
+    # Concatenamos todos los resultados en un solo DataFrame
+    df_resultado = pd.concat(contenedores, ignore_index=True)
+    
+    # Guardamos en un archivo Excel
+    df_resultado.to_excel('resultado_cubicaje.xlsx', index=False)
+
+    # Crear HTML de los contenedores
+    html_resultado = ''
+    for i, contenedor_df in enumerate(contenedores, start=1):
+        bc_name = contenedor_df['BC'].iloc[0]
+        html_resultado += f'<h2>Contenedor {i} - BC: {bc_name}</h2>'
+        html_resultado += contenedor_df.to_html(classes='table table-striped', index=False)
+        html_resultado += '<br>'
+
+    return f'''
+    <h1>Optimización por BC y Capacidades Completada ✅</h1>
+    {html_resultado}
+    <br>
+    <a href="/download">📥 Descargar Resultado en Excel</a>
+    <br><br>
+    <a href="/">Subir otro archivo</a>
+    '''
+
+# Ruta para descargar el archivo Excel
+@app.route('/download')
+def download_file():
+    return send_file('resultado_cubicaje.xlsx', as_attachment=True)
+
+if __name__ == '__main__':
+    app.run(debug=True)
