@@ -4,26 +4,23 @@ import os
 
 app = Flask(__name__)
 
-# Ruta principal para subir archivo
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# Ruta para procesar archivo subido
 @app.route('/upload', methods=['POST'])
 def upload_file():
     file = request.files['file']
     if file.filename.endswith('.xlsx'):
         df = pd.read_excel(file)
-        df.to_pickle('temp_df.pkl')  # Guardamos temporalmente
-
+        df.to_pickle('temp_df.pkl')
         bcs = df['BC'].unique().tolist()
 
         capacidad_default = {
             'CBL': [21, 15],
             'TAC': [21],
             'HCI': [22, 11],
-            'PRM': [20],
+            'PRM': [22, 11],
             'IDL': [22, 10],
             'WYB': [21, 10],
         }
@@ -32,12 +29,10 @@ def upload_file():
     else:
         return 'Por favor sube un archivo .xlsx válido ❌'
 
-# Ruta para optimizar el cubicaje
 @app.route('/optimize', methods=['POST'])
 def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Pallets restantes'] = df['Pallets']
-
     capacidad_por_bc = {}
     for bc in df['BC'].unique():
         capacidades = request.form.get(bc).split(',')
@@ -54,6 +49,7 @@ def optimize():
             for capacidad_contenedor in capacidades:
                 pallets_actuales = 0
                 seleccionados = []
+                skus_asignados = set()
 
                 grupo_bc = grupo_bc.sort_values(['Lead time', 'Pallets restantes'], ascending=[True, False])
 
@@ -68,44 +64,40 @@ def optimize():
                         continue
 
                     mismo_lead_time = row['Lead time'] == lead_time_objetivo
+                    sku_actual = row['SKU']
+
+                    # ⛔ Límite de 5 SKUs por contenedor
+                    if len(skus_asignados) >= 5 and sku_actual not in skus_asignados:
+                        continue
 
                     if pallets_actuales >= capacidad_contenedor:
                         break
 
-                    if mismo_lead_time or pallets_actuales < capacidad_contenedor:
-                        espacio_restante = capacidad_contenedor - pallets_actuales
+                    espacio_restante = capacidad_contenedor - pallets_actuales
 
-                        if pallets_disponibles <= espacio_restante:
-                            pallets_asignados = pallets_disponibles
-                            cajas_asignadas = pallets_asignados * row['Cajas por Pallet']
+                    if pallets_disponibles <= espacio_restante:
+                        pallets_asignados = pallets_disponibles
+                    else:
+                        pallets_asignados = espacio_restante
 
-                            seleccionados.append({
-                                'SKU': row['SKU'],
-                                'BC': row['BC'],
-                                'Pallets asignados': pallets_asignados,
-                                'Cajas asignadas': cajas_asignadas,
-                                'Lead time': row['Lead time'],
-                                'Contenedor': contenedor_num
-                            })
-                            pallets_actuales += pallets_asignados
-                            grupo_bc.at[idx, 'Pallets restantes'] = 0
-                            df.at[idx, 'Pallets restantes'] = 0
-                        else:
-                            pallets_asignados = espacio_restante
-                            cajas_asignadas = pallets_asignados * row['Cajas por Pallet']
+                    cajas_asignadas = pallets_asignados * row['Cajas por Pallet']
 
-                            seleccionados.append({
-                                'SKU': row['SKU'],
-                                'BC': row['BC'],
-                                'Pallets asignados': pallets_asignados,
-                                'Cajas asignadas': cajas_asignadas,
-                                'Lead time': row['Lead time'],
-                                'Contenedor': contenedor_num
-                            })
-                            pallets_actuales += pallets_asignados
-                            grupo_bc.at[idx, 'Pallets restantes'] -= pallets_asignados
-                            df.at[idx, 'Pallets restantes'] -= pallets_asignados
-                            break
+                    seleccionados.append({
+                        'SKU': sku_actual,
+                        'BC': row['BC'],
+                        'Pallets asignados': pallets_asignados,
+                        'Cajas asignadas': cajas_asignadas,
+                        'Lead time': row['Lead time'],
+                        'Contenedor': contenedor_num
+                    })
+
+                    pallets_actuales += pallets_asignados
+                    skus_asignados.add(sku_actual)
+                    grupo_bc.at[idx, 'Pallets restantes'] -= pallets_asignados
+                    df.at[idx, 'Pallets restantes'] -= pallets_asignados
+
+                    if pallets_actuales >= capacidad_contenedor:
+                        break
 
                 if seleccionados:
                     contenedores.append(pd.DataFrame(seleccionados))
@@ -114,18 +106,13 @@ def optimize():
             else:
                 break
 
-    # Concatenamos todos los resultados en un solo DataFrame
     df_resultado = pd.concat(contenedores, ignore_index=True)
-    
-    # Guardamos en un archivo Excel
     df_resultado.to_excel('resultado_cubicaje.xlsx', index=False)
 
-    # Crear HTML bonito de los contenedores con Bootstrap
     html_resultado = ''
     for i, contenedor_df in enumerate(contenedores, start=1):
         bc_name = contenedor_df['BC'].iloc[0]
         table_html = contenedor_df.to_html(classes='table table-bordered table-striped', index=False)
-        
         html_resultado += f'''
         <div class="card mb-4 shadow-sm">
             <div class="card-body">
@@ -156,7 +143,6 @@ def optimize():
     </html>
     '''
 
-# Ruta para descargar el archivo Excel
 @app.route('/download')
 def download_file():
     return send_file('resultado_cubicaje.xlsx', as_attachment=True)
@@ -164,4 +150,5 @@ def download_file():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
 
