@@ -13,7 +13,7 @@ def upload_file():
     file = request.files['file']
     if file.filename.endswith('.xlsx'):
         df = pd.read_excel(file)
-        df.to_pickle('temp_df.pkl')
+        df.to_pickle('temp_df.pkl')  # Guardamos temporalmente
         bcs = df['BC'].unique().tolist()
 
         capacidad_default = {
@@ -65,6 +65,7 @@ def optimize():
 
                     mismo_lead_time = row['Lead time'] == lead_time_objetivo
                     sku_actual = row['SKU']
+                    nombre_sku = row['Nombre SKU']  # Leemos el nombre del SKU
 
                     # ⛔ Límite de 5 SKUs por contenedor
                     if len(skus_asignados) >= 5 and sku_actual not in skus_asignados:
@@ -84,6 +85,7 @@ def optimize():
 
                     seleccionados.append({
                         'SKU': sku_actual,
+                        'Nombre SKU': nombre_sku,  # Incluimos el nombre del SKU
                         'BC': row['BC'],
                         'Pallets asignados': pallets_asignados,
                         'Cajas asignadas': cajas_asignadas,
