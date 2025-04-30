@@ -111,18 +111,24 @@ def optimize():
     df_resultado = pd.concat(contenedores, ignore_index=True)
     df_resultado.to_excel('resultado_cubicaje.xlsx', index=False)
 
-    html_resultado = ''
-    for i, contenedor_df in enumerate(contenedores, start=1):
-        bc_name = contenedor_df['BC'].iloc[0]
-        table_html = contenedor_df.to_html(classes='table table-bordered table-striped', index=False)
-        html_resultado += f'''
-        <div class="card mb-4 shadow-sm">
-            <div class="card-body">
-                <h3 class="card-title">Contenedor {i} - BC: {bc_name}</h3>
-                {table_html}
-            </div>
+# Crear HTML de los contenedores
+html_resultado = ''
+for i, contenedor_df in enumerate(contenedores, start=1):
+    bc_name = contenedor_df['BC'].iloc[0]
+    table_html = contenedor_df.to_html(classes='table table-bordered table-striped text-center', index=False)
+    
+    # Centrar los títulos de las columnas
+    table_html = table_html.replace('<thead>', '<thead class="text-center">')
+
+    html_resultado += f'''
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <h3 class="card-title">Contenedor {i} - BC: {bc_name}</h3>
+            {table_html}
         </div>
-        '''
+    </div>
+    '''
+
 
     return f'''
     <!DOCTYPE html>
