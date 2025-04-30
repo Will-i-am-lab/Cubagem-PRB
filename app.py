@@ -117,7 +117,7 @@ def optimize():
         bc_name = contenedor_df['BC'].iloc[0]
         table_html = contenedor_df.to_html(classes='table table-bordered table-striped text-center', index=False)
 
-        # Centramos los títulos de las columnas
+        # Centramos los títulos de las columnas con una clase CSS personalizada
         table_html = table_html.replace('<thead>', '<thead class="text-center">')
 
         html_resultado += f'''
@@ -136,6 +136,11 @@ def optimize():
         <meta charset="UTF-8">
         <title>Optimización Completada</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            .table th, .table td {{
+                text-align: center;
+            }}
+        </style>
     </head>
     <body class="bg-light">
         <div class="container py-5">
@@ -157,6 +162,7 @@ def download_file():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
