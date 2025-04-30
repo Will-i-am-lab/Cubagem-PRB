@@ -13,7 +13,7 @@ def upload_file():
     file = request.files['file']
     if file.filename.endswith('.xlsx'):
         df = pd.read_excel(file)
-        df.to_pickle('temp_df.pkl')  # Guardamos temporalmente
+        df.to_pickle('temp_df.pkl')
         bcs = df['BC'].unique().tolist()
 
         capacidad_default = {
@@ -25,7 +25,9 @@ def upload_file():
             'WYB': [21, 10],
         }
 
-        return render_template('select_capacities.html', bcs=bcs, capacidad_default=capacidad_default)
+        return render_template('select_capacities.html',
+                               bcs=bcs,
+                               capacidad_default=capacidad_default)
     else:
         return 'Por favor sube un archivo .xlsx válido ❌'
 
@@ -33,6 +35,7 @@ def upload_file():
 def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Pallets restantes'] = df['Pallets']
+
     capacidad_por_bc = {}
     for bc in df['BC'].unique():
         capacidades = request.form.get(bc).split(',')
@@ -51,23 +54,25 @@ def optimize():
                 seleccionados = []
                 skus_asignados = set()
 
-                grupo_bc = grupo_bc.sort_values(['Lead time', 'Pallets restantes'], ascending=[True, False])
-
+                grupo_bc = grupo_bc.sort_values(
+                    ['Lead time', 'Pallets restantes'],
+                    ascending=[True, False]
+                )
                 if grupo_bc[grupo_bc['Pallets restantes'] > 0].empty:
                     break
 
-                lead_time_objetivo = grupo_bc[grupo_bc['Pallets restantes'] > 0]['Lead time'].iloc[0]
+                lead_time_objetivo = grupo_bc[
+                    grupo_bc['Pallets restantes'] > 0
+                ]['Lead time'].iloc[0]
 
                 for idx, row in grupo_bc.iterrows():
                     pallets_disponibles = row['Pallets restantes']
                     if pallets_disponibles <= 0:
                         continue
 
-                    mismo_lead_time = row['Lead time'] == lead_time_objetivo
                     sku_actual = row['SKU']
-                    nombre_sku = row['Nombre SKU']  # Leemos el nombre del SKU
-
-                    # ⛔ Límite de 5 SKUs por contenedor
+                    nombre_sku = row['Nombre SKU']
+                    # límite de 5 SKUs por contenedor
                     if len(skus_asignados) >= 5 and sku_actual not in skus_asignados:
                         continue
 
@@ -75,17 +80,12 @@ def optimize():
                         break
 
                     espacio_restante = capacidad_contenedor - pallets_actuales
-
-                    if pallets_disponibles <= espacio_restante:
-                        pallets_asignados = pallets_disponibles
-                    else:
-                        pallets_asignados = espacio_restante
-
+                    pallets_asignados = min(pallets_disponibles, espacio_restante)
                     cajas_asignadas = pallets_asignados * row['Cajas por Pallet']
 
                     seleccionados.append({
                         'SKU': sku_actual,
-                        'Nombre SKU': nombre_sku,  # Incluimos el nombre del SKU
+                        'Nombre SKU': nombre_sku,
                         'BC': row['BC'],
                         'Pallets asignados': pallets_asignados,
                         'Cajas asignadas': cajas_asignadas,
@@ -108,24 +108,31 @@ def optimize():
             else:
                 break
 
+    # Guardar resultado en Excel
     df_resultado = pd.concat(contenedores, ignore_index=True)
     df_resultado.to_excel('resultado_cubicaje.xlsx', index=False)
 
-    # Crear HTML de los contenedores con Bootstrap y centrado de títulos
+    # Construir el HTML de resultados
     html_resultado = ''
     for i, contenedor_df in enumerate(contenedores, start=1):
         bc_name = contenedor_df['BC'].iloc[0]
-        table_html = contenedor_df.to_html(classes='table table-bordered table-striped text-center', index=False)
-
-        # Centramos los títulos de las columnas con una clase CSS personalizada
+        total_pallets = contenedor_df['Pallets asignados'].sum()
+        table_html = contenedor_df.to_html(
+            classes='table table-bordered table-striped text-center',
+            index=False
+        )
+        # Asegurar encabezados centrados
         table_html = table_html.replace('<thead>', '<thead class="text-center">')
 
         html_resultado += f'''
         <div class="card mb-4 shadow-sm">
-            <div class="card-body">
-                <h3 class="card-title">Contenedor {i} - BC: {bc_name}</h3>
-                {table_html}
-            </div>
+          <div class="card-body">
+            <h3 class="card-title">
+              Contenedor {i} - BC: {bc_name}
+            </h3>
+            <p class="fw-bold">Total de Pallets en este contenedor: {total_pallets}</p>
+            {table_html}
+          </div>
         </div>
         '''
 
@@ -133,24 +140,28 @@ def optimize():
     <!DOCTYPE html>
     <html lang="es">
     <head>
-        <meta charset="UTF-8">
-        <title>Optimización Completada</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <style>
-            .table th, .table td {{
-                text-align: center;
-            }}
-        </style>
+      <meta charset="UTF-8">
+      <title>Optimización Completada</title>
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+      <style>
+        .table th, .table td {{ text-align: center; }}
+      </style>
     </head>
     <body class="bg-light">
-        <div class="container py-5">
-            <h1 class="mb-4 text-center">Optimización por BC y Capacidades Completada ✅</h1>
-            {html_resultado}
-            <div class="text-center mt-4">
-                <a href="/download" class="btn btn-success btn-lg">📥 Descargar Resultado en Excel</a>
-                <a href="/" class="btn btn-secondary btn-lg ms-3">Subir otro archivo</a>
-            </div>
+      <div class="container py-5">
+        <h1 class="mb-4 text-center">
+          Optimización por BC y Capacidades Completada ✅
+        </h1>
+        {html_resultado}
+        <div class="text-center mt-4">
+          <a href="/download" class="btn btn-success btn-lg">
+            📥 Descargar Resultado en Excel
+          </a>
+          <a href="/" class="btn btn-secondary btn-lg ms-3">
+            Subir otro archivo
+          </a>
         </div>
+      </div>
     </body>
     </html>
     '''
