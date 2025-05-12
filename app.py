@@ -95,7 +95,7 @@ def optimize():
                         if acc < menor:
                             take = min(qty, menor-acc)
                             rec = r.copy(); rec['Pallets asignados']=take
-                            rec['Cajas asignadas']=take * row['Cajas por Pallet']
+                            rec['Cajas asignadas']=take * r['Cajas por Pallet']
                             rec1.append(rec)
                             leftover = qty - take
                             if leftover>0:
