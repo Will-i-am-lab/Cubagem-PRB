@@ -65,7 +65,6 @@ def optimize():
 
             pallets_actuales = 0
             seleccion = []
-            skus = set()
 
             grupo = grupo.sort_values(
                 ['Lead time', 'Pallets restantes'],
@@ -77,15 +76,6 @@ def optimize():
                 if rem <= 0:
                     continue
 
-                sku = row['SKU']
-                nombre = row['Nombre SKU']
-
-                # Límite 5 SKUs si ya llenamos ≥90%
-                if len(skus) >= 5 and pallets_actuales < cap_sel * 0.9:
-                    pass
-                elif len(skus) >= 5 and sku not in skus:
-                    continue
-
                 espacio = cap_sel - pallets_actuales
                 if espacio <= 0:
                     break
@@ -94,8 +84,8 @@ def optimize():
                 cajas = take * row['Cajas por Pallet']
 
                 seleccion.append({
-                    'SKU': sku,
-                    'Nombre SKU': nombre,
+                    'SKU': row['SKU'],
+                    'Nombre SKU': row['Nombre SKU'],
                     'BC': bc,
                     'Pallets asignados': take,
                     'Cajas asignadas': cajas,
@@ -104,19 +94,17 @@ def optimize():
                 })
 
                 pallets_actuales += take
-                skus.add(sku)
                 grupo.at[idx, 'Pallets restantes'] -= take
                 df.at[idx, 'Pallets restantes'] -= take
 
                 if pallets_actuales >= cap_sel:
                     break
 
-            # Si algo se asignó, guardamos
-            if seleccion:
-                contenedores.append(pd.DataFrame(seleccion))
-                cont_num += 1
-            else:
+            if not seleccion:
                 break
+
+            contenedores.append(pd.DataFrame(seleccion))
+            cont_num += 1
 
     # Exportar a Excel
     resultado = pd.concat(contenedores, ignore_index=True)
@@ -136,7 +124,7 @@ def optimize():
         <div class="card mb-4 shadow-sm">
           <div class="card-body">
             <h3 class="card-title">Contenedor {i} - BC: {bc_name}</h3>
-            <p class="fw-bold">Total de pallets: {total_pals}</p>
+            <p class="fw-bold">Total de pallets en este contenedor: {total_pals}</p>
             {table_html}
           </div>
         </div>
@@ -156,7 +144,7 @@ def optimize():
         <h1 class="mb-4 text-center">Optimización por BC y Capacidades Completada ✅</h1>
         {html}
         <div class="text-center mt-4">
-          <a href="/download" class="btn btn-success btn-lg">📥 Descargar Excel</a>
+          <a href="/download" class="btn btn-success btn-lg">📥 Descargar Resultado en Excel</a>
           <a href="/" class="btn btn-secondary btn-lg ms-3">Volver</a>
         </div>
       </div>
@@ -170,6 +158,5 @@ def download_file():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
+    app.run(host='0.0.0.0', port=port)
 
