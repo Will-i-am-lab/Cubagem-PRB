@@ -28,110 +28,111 @@ def upload_file():
         return render_template('select_capacities.html',
                                bcs=bcs,
                                capacidad_default=capacidad_default)
-    else:
-        return 'Por favor sube un archivo .xlsx válido ❌'
+    return 'Por favor sube un archivo .xlsx válido ❌'
 
 @app.route('/optimize', methods=['POST'])
 def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Pallets restantes'] = df['Pallets']
 
+    # Leemos capacidades elegidas por BC
     capacidad_por_bc = {}
     for bc in df['BC'].unique():
-        capacidades = request.form.get(bc).split(',')
-        capacidad_por_bc[bc] = [int(c.strip()) for c in capacidades if c.strip()]
+        cantidades = request.form.get(bc).split(',')
+        capacidad_por_bc[bc] = [int(x) for x in cantidades if x.strip()]
 
     contenedores = []
-    contenedor_num = 1
+    cont_num = 1
 
+    # Por cada BC
     for bc in df['BC'].unique():
-        grupo_bc = df[df['BC'] == bc].copy()
-        capacidades = sorted(capacidad_por_bc[bc], reverse=True)
+        grupo = df[df['BC'] == bc].copy()
 
-        while grupo_bc['Pallets restantes'].sum() > 0:
-            for capacidad_contenedor in capacidades:
-                pallets_actuales = 0
-                seleccionados = []
-                skus_asignados = set()
+        # Mientras queden pallets
+        while grupo['Pallets restantes'].sum() > 0:
+            sum_rem = grupo['Pallets restantes'].sum()
+            caps = capacidad_por_bc[bc]
 
-                grupo_bc = grupo_bc.sort_values(
-                    ['Lead time', 'Pallets restantes'],
-                    ascending=[True, False]
-                )
-                if grupo_bc[grupo_bc['Pallets restantes'] > 0].empty:
+            # Selección de capacidad: maximizar llenado
+            if sum_rem >= max(caps):
+                cap_sel = max(caps)
+            else:
+                cap_sel = min(caps, key=lambda c: abs(c - sum_rem))
+
+            pallets_actuales = 0
+            seleccion = []
+            skus = set()
+
+            # Orden por Lead time + pallets restantes
+            grupo = grupo.sort_values(['Lead time','Pallets restantes'],
+                                      ascending=[True, False])
+
+            # Asignación de pallets al contenedor
+            for idx, row in grupo.iterrows():
+                if row['Pallets restantes'] <= 0:
+                    continue
+
+                sku = row['SKU']
+                nombre = row['Nombre SKU']
+
+                # ⛔ Límite de 5 SKUs (solo si ya llenamos casi al 100%)
+                if len(skus) >= 5 and pallets_actuales < cap_sel * 0.9:
+                    # si no hemos llenado por lo menos el 90%, ignoramos el tope
+                    pass
+                elif len(skus) >= 5 and sku not in skus:
+                    continue
+
+                espacio = cap_sel - pallets_actuales
+                if espacio <= 0:
                     break
 
-                lead_time_objetivo = grupo_bc[
-                    grupo_bc['Pallets restantes'] > 0
-                ]['Lead time'].iloc[0]
+                take = min(row['Pallets restantes'], espacio)
+                cajas = take * row['Cajas por Pallet']
 
-                for idx, row in grupo_bc.iterrows():
-                    pallets_disponibles = row['Pallets restantes']
-                    if pallets_disponibles <= 0:
-                        continue
+                seleccion.append({
+                    'SKU': sku,
+                    'Nombre SKU': nombre,
+                    'BC': bc,
+                    'Pallets asignados': take,
+                    'Cajas asignadas': cajas,
+                    'Lead time': row['Lead time'],
+                    'Contenedor': cont_num
+                })
+                pallets_actuales += take
+                skus.add(sku)
 
-                    sku_actual = row['SKU']
-                    nombre_sku = row['Nombre SKU']
-                    # límite de 5 SKUs por contenedor
-                    if len(skus_asignados) >= 5 and sku_actual not in skus_asignados:
-                        continue
+                # Actualizamos en dataframes
+                grupo.at[idx,'Pallets restantes'] -= take
+                df.at[idx,'Pallets restantes']   -= take
 
-                    if pallets_actuales >= capacidad_contenedor:
-                        break
-
-                    espacio_restante = capacidad_contenedor - pallets_actuales
-                    pallets_asignados = min(pallets_disponibles, espacio_restante)
-                    cajas_asignadas = pallets_asignados * row['Cajas por Pallet']
-
-                    seleccionados.append({
-                        'SKU': sku_actual,
-                        'Nombre SKU': nombre_sku,
-                        'BC': row['BC'],
-                        'Pallets asignados': pallets_asignados,
-                        'Cajas asignadas': cajas_asignadas,
-                        'Lead time': row['Lead time'],
-                        'Contenedor': contenedor_num
-                    })
-
-                    pallets_actuales += pallets_asignados
-                    skus_asignados.add(sku_actual)
-                    grupo_bc.at[idx, 'Pallets restantes'] -= pallets_asignados
-                    df.at[idx, 'Pallets restantes'] -= pallets_asignados
-
-                    if pallets_actuales >= capacidad_contenedor:
-                        break
-
-                if seleccionados:
-                    contenedores.append(pd.DataFrame(seleccionados))
-                    contenedor_num += 1
+                if pallets_actuales >= cap_sel:
                     break
+
+            # Guardamos si hubo asignaciones
+            if seleccion:
+                contenedores.append(pd.DataFrame(seleccion))
+                cont_num += 1
             else:
                 break
 
-    # Guardar resultado en Excel
-    df_resultado = pd.concat(contenedores, ignore_index=True)
-    df_resultado.to_excel('resultado_cubicaje.xlsx', index=False)
+    # Exportar Excel
+    resultado = pd.concat(contenedores, ignore_index=True)
+    resultado.to_excel('resultado_cubicaje.xlsx', index=False)
 
-    # Construir el HTML de resultados
-    html_resultado = ''
-    for i, contenedor_df in enumerate(contenedores, start=1):
-        bc_name = contenedor_df['BC'].iloc[0]
-        total_pallets = contenedor_df['Pallets asignados'].sum()
-        table_html = contenedor_df.to_html(
-            classes='table table-bordered table-striped text-center',
-            index=False
-        )
-        # Asegurar encabezados centrados
-        table_html = table_html.replace('<thead>', '<thead class="text-center">')
+    # Generar HTML con totales de pallets y tablas centradas
+    html = ''
+    for i, cont in enumerate(contenedores, 1):
+        bc_name = cont['BC'].iloc[0]
+        total_pallets = cont['Pallets asignados'].sum()
+        table = cont.to_html(classes='table table-bordered table-striped text-center', index=False)
+        table = table.replace('<thead>', '<thead class="text-center">')
 
-        html_resultado += f'''
+        html += f'''
         <div class="card mb-4 shadow-sm">
           <div class="card-body">
-            <h3 class="card-title">
-              Contenedor {i} - BC: {bc_name}
-            </h3>
-            <p class="fw-bold">Total de Pallets en este contenedor: {total_pallets}</p>
-            {table_html}
+            <h3 class="card-title">Contenedor {i} - BC: {bc_name}</h3>
+            <p class="fw-bold">Total Pallets: {total_pallets}</p>
+            {table}
           </div>
         </div>
         '''
@@ -141,25 +142,18 @@ def optimize():
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>Optimización Completada</title>
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-      <style>
-        .table th, .table td {{ text-align: center; }}
-      </style>
+      <title>Resultado de Optimización</title>
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet">
+      <style>.table th,.table td{{text-align:center}}</style>
     </head>
     <body class="bg-light">
       <div class="container py-5">
-        <h1 class="mb-4 text-center">
-          Optimización por BC y Capacidades Completada ✅
-        </h1>
-        {html_resultado}
+        <h1 class="mb-4 text-center">Optimización Completada ✅</h1>
+        {html}
         <div class="text-center mt-4">
-          <a href="/download" class="btn btn-success btn-lg">
-            📥 Descargar Resultado en Excel
-          </a>
-          <a href="/" class="btn btn-secondary btn-lg ms-3">
-            Subir otro archivo
-          </a>
+          <a href="/download" class="btn btn-success btn-lg">📥 Descargar Excel</a>
+          <a href="/" class="btn btn-secondary btn-lg ms-3">Volver</a>
         </div>
       </div>
     </body>
@@ -171,9 +165,7 @@ def download_file():
     return send_file('resultado_cubicaje.xlsx', as_attachment=True)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
-
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT',5000)), debug=False)
 
 
 
