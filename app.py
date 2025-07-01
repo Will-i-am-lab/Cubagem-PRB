@@ -17,7 +17,7 @@ def upload_file():
         bcs = df['BC'].unique().tolist()
  
         capacidad_default = {
-            'CBL': [21, 15],
+            'MST': [11],
             'TAC': [21],
             'HCI': [22, 11],
             'PRM': [20],
