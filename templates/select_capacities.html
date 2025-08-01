@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
     <title>Seleccionar Capacidades por BC</title>
@@ -10,14 +10,14 @@
 <div class="container py-5">
     <div class="card shadow-lg">
         <div class="card-body">
-            <h1 class="card-title text-center mb-4">⚙️ Configuración de Capacidades de Contenedores</h1>
+            <h1 class="card-title text-center mb-4">⚙️ Configuração de Capacidades de Containers</h1>
 
             <form action="/optimize" method="post">
                 {% for bc in bcs %}
                     <div class="mb-4">
                         <h4>🚚 {{ bc }}</h4>
                         <input type="text" name="{{ bc }}" value="{{ capacidad_default.get(bc, [20])|join(',') }}" class="form-control" required>
-                        <small class="form-text text-muted">Ejemplo: 21,15 (separadas por coma)</small>
+                        <small class="form-text text-muted">Exemplo: 24,20 (separados por vírgula)</small>
                     </div>
                 {% endfor %}
 
@@ -31,4 +31,5 @@
 
 </body>
 </html>
+
 
