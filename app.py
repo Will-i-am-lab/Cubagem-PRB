@@ -17,12 +17,9 @@ def upload_file():
         skus = df['SKU'].unique().tolist()
 
         capacidad_por_sku = {
-            'SKU001': [11],
-            'SKU002': [21],
-            'SKU003': [22, 11],
-            'SKU004': [20],
-            'SKU005': [22, 10],
-            'SKU006': [21, 10],
+            '7126': [24],
+            '7128': [21],
+            '7047': [21],
         }
 
         return render_template('select_capacities.html',
@@ -41,7 +38,7 @@ def optimize():
         if cantidades:
             capacidad_por_sku[sku] = [int(x) for x in cantidades.split(',') if x.strip()]
         else:
-            capacidad_por_sku[sku] = [20]  # valor padrão se não informado
+            capacidad_por_sku[sku] = [11]  # valor padrão se não informado
 
     contenedores = []
     cont_num = 1
