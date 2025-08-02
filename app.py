@@ -17,10 +17,16 @@ def upload_file():
         skus = df['SKU'].unique().tolist()
 
         capacidad_por_sku = {
-            '7126': [24],
-            '7128': [21],
-            '7047': [21],
+            'SKU001': [11],
+            'SKU002': [21],
+            'SKU003': [22, 11],
+            'SKU004': [20],
+            'SKU005': [22, 10],
+            'SKU006': [21, 10],
         }
+
+        # Salva o dicionário padrão para uso posterior
+        pd.to_pickle(capacidad_por_sku, 'default_capacidades.pkl')
 
         return render_template('select_capacities.html',
                                bcs=skus,
@@ -32,13 +38,16 @@ def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Paletes restantes'] = df['Paletes']
 
+    # Carrega capacidades padrão salvas
+    capacidad_default = pd.read_pickle('default_capacidades.pkl')
+
     capacidad_por_sku = {}
     for sku in df['SKU'].unique():
         cantidades = request.form.get(sku)
-        if cantidades:
+        if cantidades and cantidades.strip():
             capacidad_por_sku[sku] = [int(x) for x in cantidades.split(',') if x.strip()]
         else:
-            capacidad_por_sku[sku] = [11]  # valor padrão se não informado
+            capacidad_por_sku[sku] = capacidad_default.get(sku, [20])  # usa padrão ou [20]
 
     contenedores = []
     cont_num = 1
@@ -138,7 +147,8 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.cssle th,.table td{{text-align:center}}</style>
+https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
+<style>.table th,.table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
 <div class="container py-5">
@@ -159,5 +169,4 @@ def download_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
-
 
