@@ -17,9 +17,9 @@ def upload_file():
         skus = df['SKU'].unique().tolist()
 
         capacidad_por_sku = {
-            'SKU001': [11],
-            'SKU002': [21],
-            'SKU003': [22, 11],
+            '7126': [24],
+            '7128': [21],
+            '7047': [21],
             'SKU004': [20],
             'SKU005': [22, 10],
             'SKU006': [21, 10],
