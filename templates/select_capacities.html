@@ -13,7 +13,7 @@
             <h1 class="card-title text-center mb-4">⚙️ Configuração de Capacidades de Containers</h1>
 
             <form action="/optimize" method="post">
-                {% for bc in bcs %}
+                {% for sku in bcs %}
                     <div class="mb-4">
                         <h4>🚚 {{ bc }}</h4>
                         <input type="text" name="{{ sku }}" value="{{ capacidad_default.get(bc, [20])|join(',') }}" class="form-control" required>
@@ -31,6 +31,7 @@
 
 </body>
 </html>
+
 
 
 
