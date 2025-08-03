@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file
+ffrom flask import Flask, render_template, request, send_file
 import pandas as pd
 import os
 
@@ -13,15 +13,16 @@ def upload_file():
     file = request.files['file']
     if file.filename.endswith('.xlsx'):
         df = pd.read_excel(file)
+
+        # Padroniza os SKUs
+        df['SKU'] = df['SKU'].astype(str).str.strip().str.upper()
         df.to_pickle('temp_df.pkl')
 
+        # Dicionário com SKUs padronizados
         capacidad_por_sku = {
             '7126': [24],
             '7128': [21],
-            7047: [21],
-            'SKU004': [20],
-            'SKU005': [22, 10],
-            'SKU006': [21, 10],
+            '7047': [21],
         }
 
         pd.to_pickle(capacidad_por_sku, 'default_capacidades.pkl')
@@ -47,9 +48,14 @@ def optimize():
             for sku in grupo_bc['SKU'].unique():
                 grupo_sku = grupo_bc[grupo_bc['SKU'] == sku].copy()
 
+                # Verifica se o SKU está no dicionário
+                if sku not in capacidad_por_sku:
+                    print(f"⚠️ SKU {sku} não está cadastrado. Pulando...")
+                    continue
+
                 while grupo_sku['Paletes restantes'].sum() > 0:
                     sum_rem = grupo_sku['Paletes restantes'].sum()
-                    caps = capacidad_por_sku.get(sku, [20])
+                    caps = capacidad_por_sku[sku]
 
                     if sum_rem >= max(caps):
                         cap_sel = max(caps)
@@ -133,7 +139,8 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheettext-align:center}}</style>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.ootstrap.min.css
+<style>.table th,.table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
 <div class="container py-5">
@@ -154,4 +161,5 @@ def download_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+
 
