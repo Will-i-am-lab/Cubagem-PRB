@@ -14,7 +14,6 @@ def upload_file():
     if file.filename.endswith('.xlsx'):
         df = pd.read_excel(file)
         df.to_pickle('temp_df.pkl')
-        skus = df['SKU'].unique().tolist()
 
         capacidad_por_sku = {
             '7126': [24],
@@ -27,24 +26,14 @@ def upload_file():
 
         pd.to_pickle(capacidad_por_sku, 'default_capacidades.pkl')
 
-        return render_template('select_capacities.html',
-                               skus=skus,
-                               capacidad_default=capacidad_por_sku)
+        return optimize()
     return 'Por favor suba um arquivo .xlsx válido ❌'
 
-@app.route('/optimize', methods=['POST'])
+@app.route('/optimize', methods=['POST', 'GET'])
 def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Paletes restantes'] = df['Paletes']
-    capacidad_default = pd.read_pickle('default_capacidades.pkl')
-
-    capacidad_por_sku = {}
-    for sku in df['SKU'].unique():
-        cantidades = request.form.get(sku)
-        if cantidades and cantidades.strip():
-            capacidad_por_sku[sku] = [int(x) for x in cantidades.split(',') if x.strip()]
-        else:
-            capacidad_por_sku[sku] = capacidad_default.get(sku, [20])
+    capacidad_por_sku = pd.read_pickle('default_capacidades.pkl')
 
     contenedores = []
     cont_num = 1
@@ -144,7 +133,7 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="table td{{text-align:center}}</style>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheettext-align:center}}</style>
 </head>
 <body class="bg-light">
 <div class="container py-5">
