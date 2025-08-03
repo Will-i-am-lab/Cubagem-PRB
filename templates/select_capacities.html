@@ -16,7 +16,7 @@
                 {% for bc in bcs %}
                     <div class="mb-4">
                         <h4>🚚 {{ bc }}</h4>
-                        <input type="text" name="{{ bc }}" value="{{ capacidad_default.get(bc, [20])|join(',') }}" class="form-control" required>
+                        <input type="text" name="{{ sku }}" value="{{ capacidad_default.get(bc, [20])|join(',') }}" class="form-control" required>
                         <small class="form-text text-muted">Exemplo: 24,20 (separados por vírgula)</small>
                     </div>
                 {% endfor %}
@@ -31,5 +31,6 @@
 
 </body>
 </html>
+
 
 
