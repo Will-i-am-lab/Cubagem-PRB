@@ -23,40 +23,40 @@ def upload_file():
             '7126': [24, 21],
             '7128': [21],
             '7046': [24, 21],
-	    '7047': [21],
-	    '7141': [21],
-	    '7151': [21],
-	    '7147': [21],
-	    '7211': [20, 11],
-	    '7206': [20, 11],
-	    '7214': [24, 11],
-	    '7207': [24, 11],
-	    '7200': [15, 11],
-	    '7201': [15, 11],
-	    '7197': [15, 11],
-	    '7198': [15, 11],
-	    '7157': [15, 11],
-	    '7224': [20, 11],
-	    '7185': [15, 11],
-	    '7079': [20, 11],
-	    '7164': [24, 11],
-	    '7191': [17, 11],
-	    '7193': [17, 11],
-	    '7192': [13, 11],
-	    '7194': [13, 11],
-	    '7216': [15, 11],
-	    '7175': [15, 11],
-	    '7238': [20, 11],
-	    '7150': [15, 11],
-	    '7166': [20],
-	    '7169': [20],
-	    '7179': [20],
-	    '7232': [20],
-	    '8006': [11],
-	    '8009': [11],
-	    '8008': [11],
-	    '8027': [11],
-	    '8028': [11],		
+            '7047': [21],
+            '7141': [21],
+            '7151': [21],
+            '7147': [21],
+            '7211': [20, 11],
+            '7206': [20, 11],
+            '7214': [24, 11],
+            '7207': [24, 11],
+            '7200': [15, 11],
+            '7201': [15, 11],
+            '7197': [15, 11],
+            '7198': [15, 11],
+            '7157': [15, 11],
+            '7224': [20, 11],
+            '7185': [15, 11],
+            '7079': [20, 11],
+            '7164': [24, 11],
+            '7191': [17, 11],
+            '7193': [17, 11],
+            '7192': [13, 11],
+            '7194': [13, 11],
+            '7216': [15, 11],
+            '7175': [15, 11],
+            '7238': [20, 11],
+            '7150': [15, 11],
+            '7166': [20],
+            '7169': [20],
+            '7179': [20],
+            '7232': [20],
+            '8006': [11],
+            '8009': [11],
+            '8008': [11],
+            '8027': [11],
+            '8028': [11],        
         }
 
         pd.to_pickle(capacidad_por_sku, 'default_capacidades.pkl')
@@ -84,8 +84,8 @@ def optimize():
 
                 # Verifica se o SKU está no dicionário
                 if sku not in capacidad_por_sku:
-                    print(f"⚠️ SKU {sku} não está cadastrado. Pulando...")
-                    continue
+                    print(f"⚠️ SKU {sku} não está cadastrado. Usando capacidade padrão de 11 paletes.")
+                    capacidad_por_sku[sku] = [11]
 
                 while grupo_sku['Paletes restantes'].sum() > 0:
                     sum_rem = grupo_sku['Paletes restantes'].sum()
@@ -173,8 +173,7 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.ootstrap.min.css
-<style>.table th,.table td{{text-align:center}}</style>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.table th,.table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
 <div class="container py-5">
