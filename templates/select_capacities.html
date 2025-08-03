@@ -1,36 +1,51 @@
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-    <meta charset="UTF-8">
-    <title>Seleccionar Capacidades por BC</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+&lt;!DOCTYPE html&gt;
+&lt;html lang="pt"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Selecionar Capacidades por SKU&lt;/title&gt;
+    &lt;link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"&gt;
+&lt;/head&gt;
+&lt;body class="bg-light"&gt;
 
-<div class="container py-5">
-    <div class="card shadow-lg">
-        <div class="card-body">
-            <h1 class="card-title text-center mb-4">⚙️ Configuração de Capacidades de Containers</h1>
+    &lt;div class="container py-5"&gt;
+        &lt;div class="card shadow-lg"&gt;
+            &lt;div class="card-body"&gt;
+                &lt;h1 class="card-title text-center mb-4"&gt;
+                    ⚙️ Configuração de Capacidades de Contêineres
+                &lt;/h1&gt;
 
-            <form action="/optimize" method="post">
-                {% for bc in bcs %}
-                    <div class="mb-4">
-                        <h4>🚚 {{ bc }}</h4>
-                        <input type="text" name="{{ bc }}" value="{{ capacidad_default.get(bc, [20])|join(',') }}" class="form-control" required>
-                        <small class="form-text text-muted">Exemplo: 24,20 (separados por vírgula)</small>
-                    </div>
-                {% endfor %}
+                &lt;form action="/optimize" method="post"&gt;
 
-                <div class="text-center">
-                    <button type="submit" class="btn btn-success btn-lg">Optimizar Cubicaje</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+                    {% for sku in skus %}
+                        &lt;div class="mb-4"&gt;
+                            &lt;h4&gt;📦 SKU: {{ sku }}&lt;/h4&gt;
+                            &lt;input 
+                                type="text" 
+                                name="{{ sku }}" 
+                                value="{{ capacidad_default.get(sku, [20])|join(',') }}" 
+                                class="form-control" 
+                                required
+                            &gt;
+                            &lt;small class="form-text text-muted"&gt;
+                                Exemplo: 24,20 (separados por vírgula)
+                            &lt;/small&gt;
+                        &lt;/div&gt;
+                    {% endfor %}
 
-</body>
-</html>
+                    &lt;div class="text-center"&gt;
+                        &lt;button type="submit" class="btn btn-success btn-lg"&gt;
+                            🔄 Otimizar Cubicaje
+                        &lt;/button&gt;
+                    &lt;/div&gt;
+
+                &lt;/form&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+
 
 
 
