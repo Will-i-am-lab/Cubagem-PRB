@@ -25,11 +25,10 @@ def upload_file():
             'SKU006': [21, 10],
         }
 
-        # Salva o dicionário padrão para uso posterior
         pd.to_pickle(capacidad_por_sku, 'default_capacidades.pkl')
 
         return render_template('select_capacities.html',
-                               bcs=skus,
+                               skus=skus,
                                capacidad_default=capacidad_por_sku)
     return 'Por favor suba um arquivo .xlsx válido ❌'
 
@@ -37,8 +36,6 @@ def upload_file():
 def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Paletes restantes'] = df['Paletes']
-
-    # Carrega capacidades padrão salvas
     capacidad_default = pd.read_pickle('default_capacidades.pkl')
 
     capacidad_por_sku = {}
@@ -47,7 +44,7 @@ def optimize():
         if cantidades and cantidades.strip():
             capacidad_por_sku[sku] = [int(x) for x in cantidades.split(',') if x.strip()]
         else:
-            capacidad_por_sku[sku] = capacidad_default.get(sku, [20])  # usa padrão ou [20]
+            capacidad_por_sku[sku] = capacidad_default.get(sku, [20])
 
     contenedores = []
     cont_num = 1
@@ -147,8 +144,7 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
-<style>.table th,.table td{{text-align:center}}</style>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
 <div class="container py-5">
