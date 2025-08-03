@@ -20,7 +20,7 @@ def upload_file():
 
         # Dicionário com SKUs padronizados
         capacidad_por_sku = {
-            '7126': [24],
+            '7126': [24, 21],
             '7128': [21],
             '7047': [21],
         }
