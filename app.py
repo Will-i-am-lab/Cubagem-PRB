@@ -14,49 +14,18 @@ def upload_file():
     if file.filename.endswith('.xlsx'):
         df = pd.read_excel(file)
 
-        # Padroniza os SKUs
         df['SKU'] = df['SKU'].astype(str).str.strip().str.upper()
         df.to_pickle('temp_df.pkl')
 
-        # Dicionário com SKUs padronizados
         capacidad_por_sku = {
-            '7126': [24, 21],
-            '7128': [21],
-            '7046': [24, 21],
-            '7047': [21],
-            '7141': [21],
-            '7151': [21],
-            '7147': [21],
-            '7211': [20, 11],
-            '7206': [20, 11],
-            '7214': [24, 11],
-            '7207': [24, 11],
-            '7200': [15, 11],
-            '7201': [15, 11],
-            '7197': [15, 11],
-            '7198': [15, 11],
-            '7157': [15, 11],
-            '7224': [20, 11],
-            '7185': [15, 11],
-            '7079': [20, 11],
-            '7164': [24, 11],
-            '7191': [17, 11],
-            '7193': [17, 11],
-            '7192': [13, 11],
-            '7194': [13, 11],
-            '7216': [15, 11],
-            '7175': [15, 11],
-            '7238': [20, 11],
-            '7150': [15, 11],
-            '7166': [20],
-            '7169': [20],
-            '7179': [20],
-            '7232': [20],
-            '8006': [11],
-            '8009': [11],
-            '8008': [11],
-            '8027': [11],
-            '8028': [11],        
+            '7126': [24, 21], '7128': [21], '7046': [24, 21], '7047': [21], '7141': [21],
+            '7151': [21], '7147': [21], '7211': [20, 11], '7206': [20, 11], '7214': [24, 11],
+            '7207': [24, 11], '7200': [15, 11], '7201': [15, 11], '7197': [15, 11], '7198': [15, 11],
+            '7157': [15, 11], '7224': [20, 11], '7185': [15, 11], '7079': [20, 11], '7164': [24, 11],
+            '7191': [17, 11], '7193': [17, 11], '7192': [13, 11], '7194': [13, 11], '7216': [15, 11],
+            '7175': [15, 11], '7238': [20, 11], '7150': [15, 11], '7166': [20], '7169': [20],
+            '7179': [20], '7232': [20], '8006': [11], '8009': [11], '8008': [11], '8027': [11],
+            '8028': [11]
         }
 
         pd.to_pickle(capacidad_por_sku, 'default_capacidades.pkl')
@@ -82,7 +51,6 @@ def optimize():
             for sku in grupo_bc['SKU'].unique():
                 grupo_sku = grupo_bc[grupo_bc['SKU'] == sku].copy()
 
-                # Verifica se o SKU está no dicionário
                 if sku not in capacidad_por_sku:
                     print(f"⚠️ SKU {sku} não está cadastrado. Usando capacidade padrão de 11 paletes.")
                     capacidad_por_sku[sku] = [11]
@@ -91,17 +59,15 @@ def optimize():
                     sum_rem = grupo_sku['Paletes restantes'].sum()
                     caps = capacidad_por_sku[sku]
 
-                    if sum_rem >= max(caps):
-                        cap_sel = max(caps)
-                    else:
-                        cap_sel = min(caps, key=lambda c: abs(c - sum_rem))
+                    cap_sel = max(caps) if sum_rem >= max(caps) else min(caps, key=lambda c: abs(c - sum_rem))
 
                     paletes_atual = 0
                     selecionados = []
                     skus_usados = set()
 
-                    grupo_sku = grupo_sku.sort_values(['WH', 'BC', 'SKU', 'ETD', 'Paletes restantes'],
-                                                      ascending=[True, True, True, True, False])
+                    grupo_sku['Capacidade SKU'] = grupo_sku['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
+                    grupo_sku = grupo_sku.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
+                                                      ascending=[True, False, False])
 
                     for idx, row in grupo_sku.iterrows():
                         if row['Paletes restantes'] <= 0:
@@ -173,7 +139,8 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.table th,.table td{{text-align:center}}</style>
+<link://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
+<style>.table th,.table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
 <div class="container py-5">
@@ -194,5 +161,3 @@ def download_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
-
-
