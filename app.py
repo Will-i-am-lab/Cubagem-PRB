@@ -13,8 +13,9 @@ def upload_file():
     file = request.files['file']
     if file.filename.endswith('.xlsx'):
         df = pd.read_excel(file)
-
         df['SKU'] = df['SKU'].astype(str).str.strip().str.upper()
+        df['ETD'] = pd.to_datetime(df['ETD'])
+        df['Paletes restantes'] = df['Paletes']
         df.to_pickle('temp_df.pkl')
 
         capacidad_por_sku = {
@@ -29,15 +30,12 @@ def upload_file():
         }
 
         pd.to_pickle(capacidad_por_sku, 'default_capacidades.pkl')
-
         return optimize()
     return 'Por favor suba um arquivo .xlsx válido ❌'
 
 @app.route('/optimize', methods=['POST', 'GET'])
 def optimize():
     df = pd.read_pickle('temp_df.pkl')
-    df['Paletes restantes'] = df['Paletes']
-    df['ETD'] = pd.to_datetime(df['ETD'])
     capacidad_por_sku = pd.read_pickle('default_capacidades.pkl')
 
     contenedores = []
@@ -48,9 +46,6 @@ def optimize():
 
         for bc in grupo_wh['BC'].unique():
             grupo_bc = grupo_wh[grupo_wh['BC'] == bc].copy()
-            grupo_bc['Capacidade SKU'] = grupo_bc['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
-            grupo_bc = grupo_bc.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
-                                            ascending=[True, False, False])
 
             while grupo_bc['Paletes restantes'].sum() > 0:
                 grupo_bc = grupo_bc[grupo_bc['Paletes restantes'] > 0]
@@ -63,9 +58,12 @@ def optimize():
 
                 grupo_etd = grupo_bc[
                     grupo_bc['ETD'].apply(lambda x: x == etd_base or (x.month == etd_mes and x.year == etd_ano))
-                ]
+                ].copy()
 
-                cap_sel = max(grupo_etd['Capacidade SKU'].max(), 11)
+                grupo_etd['Capacidade SKU'] = grupo_etd['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
+                grupo_etd = grupo_etd.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
+                                                  ascending=[True, False, False])
+
                 paletes_atual = 0
                 selecionados = []
 
@@ -73,7 +71,10 @@ def optimize():
                     if row['Paletes restantes'] <= 0:
                         continue
 
-                    espaco = cap_sel - paletes_atual
+                    sku = row['SKU']
+                    max_cap = max(capacidad_por_sku.get(sku, [11]))
+                    espaco = max_cap - paletes_atual
+
                     if espaco <= 0:
                         break
 
@@ -81,7 +82,7 @@ def optimize():
                     caixas = take * row['CA/Paletes']
 
                     selecionados.append({
-                        'SKU': row['SKU'],
+                        'SKU': sku,
                         'Descrição SKU': row['Descrição SKU'],
                         'WH': row['WH'],
                         'BC': row['BC'],
@@ -149,3 +150,4 @@ def download_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+
