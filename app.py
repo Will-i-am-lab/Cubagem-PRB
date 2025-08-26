@@ -38,7 +38,6 @@ def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Paletes restantes'] = df['Paletes']
     df['ETD'] = pd.to_datetime(df['ETD'])
-    df['ETD_MES'] = df['ETD'].dt.to_period('M')
     capacidad_por_sku = pd.read_pickle('default_capacidades.pkl')
 
     contenedores = []
@@ -50,109 +49,79 @@ def optimize():
         for bc in grupo_wh['BC'].unique():
             grupo_bc = grupo_wh[grupo_wh['BC'] == bc]
 
-            while grupo_bc['Paletes restantes'].sum() > 0:
-                grupo_bc = grupo_bc[grupo_bc['Paletes restantes'] > 0]
-                if grupo_bc.empty:
-                    break
+            for sku in grupo_bc['SKU'].unique():
+                grupo_sku = grupo_bc[grupo_bc['SKU'] == sku].copy()
 
-                etd_base = grupo_bc.sort_values('ETD').iloc[0]['ETD']
-                grupo_etd = grupo_bc[grupo_bc['ETD'] == etd_base]
+                if sku not in capacidad_por_sku:
+                    capacidad_por_sku[sku] = [11]
 
-                if grupo_etd['Paletes restantes'].sum() < 5:
-                    grupo_etd = grupo_bc[grupo_bc['ETD_MES'] == etd_base.to_period('M')]
+                while grupo_sku['Paletes restantes'].sum() > 0:
+                    sum_rem = grupo_sku['Paletes restantes'].sum()
+                    caps = capacidad_por_sku[sku]
+                    cap_sel = max(caps) if sum_rem >= max(caps) else min(caps, key=lambda c: abs(c - sum_rem))
 
-                paletes_atual = 0
-                selecionados = []
-                skus_usados = set()
+                    paletes_atual = 0
+                    selecionados = []
+                    skus_usados = set()
 
-                grupo_etd['Capacidade SKU'] = grupo_etd['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
-                grupo_etd = grupo_etd.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
-                                                  ascending=[True, False, False])
+                    grupo_sku['Capacidade SKU'] = grupo_sku['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
+                    grupo_sku = grupo_sku.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
+                                                      ascending=[True, False, False])
 
-                caps = grupo_etd['Capacidade SKU'].unique()
-                sum_rem = grupo_etd['Paletes restantes'].sum()
-                cap_sel = max(caps) if sum_rem >= max(caps) else min(caps, key=lambda c: abs(c - sum_rem))
+                    etd_base = grupo_sku['ETD'].min()
+                    etd_mes = etd_base.month
+                    etd_ano = etd_base.year
 
-                for idx, row in grupo_etd.iterrows():
-                    if row['Paletes restantes'] <= 0:
-                        continue
+                    for idx, row in grupo_sku.iterrows():
+                        if row['Paletes restantes'] <= 0:
+                            continue
 
-                    sku_atual = row['SKU']
-                    descricao = row['Descrição SKU']
-                    espaco = cap_sel - paletes_atual
-                    if espaco <= 0:
+                        etd_row = row['ETD']
+                        mesma_data = etd_row == etd_base
+                        mesmo_mes = etd_row.month == etd_mes and etd_row.year == etd_ano
+
+                        if not (mesma_data or mesmo_mes):
+                            continue
+
+                        sku_atual = row['SKU']
+                        descricao = row['Descrição SKU']
+
+                        espaco = cap_sel - paletes_atual
+                        if espaco <= 0:
+                            break
+
+                        take = min(row['Paletes restantes'], espaco)
+                        caixas = take * row['CA/Paletes']
+
+                        selecionados.append({
+                            'SKU': sku_atual,
+                            'Descrição SKU': descricao,
+                            'WH': wh,
+                            'BC': bc,
+                            'Paletes atribuídos': take,
+                            'Caixas atribuídas': caixas,
+                            'ETD': row['ETD'],
+                            'Contêiner': cont_num
+                        })
+                        paletes_atual += take
+                        skus_usados.add(sku_atual)
+
+                        grupo_sku.at[idx, 'Paletes restantes'] -= take
+                        df.at[idx, 'Paletes restantes'] -= take
+
+                        if paletes_atual >= cap_sel:
+                            break
+
+                    if selecionados:
+                        contenedores.append(pd.DataFrame(selecionados))
+                        cont_num += 1
+                    else:
                         break
-
-                    take = min(row['Paletes restantes'], espaco)
-                    caixas = take * row['CA/Paletes']
-
-                    selecionados.append({
-                        'SKU': sku_atual,
-                        'Descrição SKU': descricao,
-                        'WH': wh,
-                        'BC': bc,
-                        'Paletes atribuídos': take,
-                        'Caixas atribuídas': caixas,
-                        'ETD': row['ETD'].strftime('%Y-%m-%d'),
-                        'Contêiner': cont_num
-                    })
-                    paletes_atual += take
-                    skus_usados.add(sku_atual)
-
-                    grupo_etd.at[idx, 'Paletes restantes'] -= take
-                    df.at[idx, 'Paletes restantes'] -= take
-
-                    if paletes_atual >= cap_sel:
-                        break
-
-                if selecionados:
-                    contenedores.append(pd.DataFrame(selecionados))
-                    cont_num += 1
-                else:
-                    break
 
     resultado = pd.concat(contenedores, ignore_index=True)
     resultado.to_excel('resultado_cubicaje.xlsx', index=False)
 
     html = ''
-    for i, cont in enumerate(contenedores, 1):
-        wh_name = cont['WH'].iloc[0]
-        total_paletes = cont['Paletes atribuídos'].sum()
-        table = cont.to_html(classes='table table-bordered table-striped text-center', index=False)
-        table = table.replace('<thead>', '<thead class="text-center">')
-
-        html += f'''
-<div class="card mb-4 shadow-sm">
-<div class="card-body">
-<h3 class="card-title">Contêiner {i} - WH: {wh_name}</h3>
-<p class="fw-bold">Total de Paletes: {total_paletes}</p>
-{table}
-</div>
-</div>
-        '''
-
-    return f'''
-<!DOCTYPE html>
-<html lang="pt">
-<head>
-<meta charset="UTF-8">
-<title>Resultado de Otimização</title>
-https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
-<style>.table th,.table td{{text-align:center}}</style>
-</head>
-<body class="bg-light">
-<div class="container py-5">
-<h1 class="mb-4 text-center">Otimização Concluída ✅</h1>
-{html}
-<div class="text-center mt-4">
-<a href="/download" class="btn btn-success btn-lg">📥 Baixar Excel</a>
-<a href="/" class="btn btn-secondary btn-lg ms-3">Voltar</a>
-</div>
-</div>
-</body>
-</html>
-    '''
-
     for i, cont in enumerate(contenedores, 1):
         wh_name = cont['WH'].iloc[0]
         total_paletes = cont['Paletes atribuídos'].sum()
