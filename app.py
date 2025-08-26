@@ -64,41 +64,54 @@ def optimize():
                 grupo_etd = grupo_etd.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
                                                   ascending=[True, False, False])
 
-                paletes_atual = 0
                 selecionados = []
+                paletes_atual = 0
 
-                for idx, row in grupo_etd.iterrows():
-                    if row['Paletes restantes'] <= 0:
-                        continue
+                for cap in sorted(set(capacidad_por_sku.get(grupo_etd.iloc[0]['SKU'], [11])), reverse=True):
+                    paletes_atual = 0
+                    selecionados = []
 
-                    sku = row['SKU']
-                    max_cap = max(capacidad_por_sku.get(sku, [11]))
-                    espaco = max_cap - paletes_atual
+                    for idx, row in grupo_etd.iterrows():
+                        if row['Paletes restantes'] <= 0:
+                            continue
 
-                    if espaco <= 0:
+                        sku = row['SKU']
+                        allowed_caps = capacidad_por_sku.get(sku, [11])
+                        if cap not in allowed_caps:
+                            continue
+
+                        espaco = cap - paletes_atual
+                        if espaco <= 0:
+                            break
+
+                        take = min(row['Paletes restantes'], espaco)
+                        if take + paletes_atual > cap:
+                            continue
+
+                        caixas = take * row['CA/Paletes']
+
+                        selecionados.append({
+                            'SKU': sku,
+                            'Descrição SKU': row['Descrição SKU'],
+                            'WH': row['WH'],
+                            'BC': row['BC'],
+                            'Paletes atribuídos': take,
+                            'Caixas atribuídas': caixas,
+                            'ETD': row['ETD'],
+                            'Contêiner': cont_num
+                        })
+
+                        paletes_atual += take
+                        grupo_bc.at[idx, 'Paletes restantes'] -= take
+                        df.at[idx, 'Paletes restantes'] -= take
+
+                        if paletes_atual == cap:
+                            break
+
+                    if paletes_atual == cap:
+                        contenedores.append(pd.DataFrame(selecionados))
+                        cont_num += 1
                         break
-
-                    take = min(row['Paletes restantes'], espaco)
-                    caixas = take * row['CA/Paletes']
-
-                    selecionados.append({
-                        'SKU': sku,
-                        'Descrição SKU': row['Descrição SKU'],
-                        'WH': row['WH'],
-                        'BC': row['BC'],
-                        'Paletes atribuídos': take,
-                        'Caixas atribuídas': caixas,
-                        'ETD': row['ETD'],
-                        'Contêiner': cont_num
-                    })
-
-                    paletes_atual += take
-                    grupo_bc.at[idx, 'Paletes restantes'] -= take
-                    df.at[idx, 'Paletes restantes'] -= take
-
-                if selecionados:
-                    contenedores.append(pd.DataFrame(selecionados))
-                    cont_num += 1
                 else:
                     break
 
@@ -150,4 +163,3 @@ def download_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
-
