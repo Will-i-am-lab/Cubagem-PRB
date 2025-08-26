@@ -47,76 +47,59 @@ def optimize():
         grupo_wh = df[df['WH'] == wh]
 
         for bc in grupo_wh['BC'].unique():
-            grupo_bc = grupo_wh[grupo_wh['BC'] == bc]
+            grupo_bc = grupo_wh[grupo_wh['BC'] == bc].copy()
+            grupo_bc['Capacidade SKU'] = grupo_bc['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
+            grupo_bc = grupo_bc.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
+                                            ascending=[True, False, False])
 
-            for sku in grupo_bc['SKU'].unique():
-                grupo_sku = grupo_bc[grupo_bc['SKU'] == sku].copy()
+            while grupo_bc['Paletes restantes'].sum() > 0:
+                grupo_bc = grupo_bc[grupo_bc['Paletes restantes'] > 0]
+                if grupo_bc.empty:
+                    break
 
-                if sku not in capacidad_por_sku:
-                    capacidad_por_sku[sku] = [11]
+                etd_base = grupo_bc['ETD'].min()
+                etd_mes = etd_base.month
+                etd_ano = etd_base.year
 
-                while grupo_sku['Paletes restantes'].sum() > 0:
-                    sum_rem = grupo_sku['Paletes restantes'].sum()
-                    caps = capacidad_por_sku[sku]
-                    cap_sel = max(caps) if sum_rem >= max(caps) else min(caps, key=lambda c: abs(c - sum_rem))
+                grupo_etd = grupo_bc[
+                    grupo_bc['ETD'].apply(lambda x: x == etd_base or (x.month == etd_mes and x.year == etd_ano))
+                ]
 
-                    paletes_atual = 0
-                    selecionados = []
-                    skus_usados = set()
+                cap_sel = max(grupo_etd['Capacidade SKU'].max(), 11)
+                paletes_atual = 0
+                selecionados = []
 
-                    grupo_sku['Capacidade SKU'] = grupo_sku['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
-                    grupo_sku = grupo_sku.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
-                                                      ascending=[True, False, False])
+                for idx, row in grupo_etd.iterrows():
+                    if row['Paletes restantes'] <= 0:
+                        continue
 
-                    etd_base = grupo_sku['ETD'].min()
-                    etd_mes = etd_base.month
-                    etd_ano = etd_base.year
-
-                    for idx, row in grupo_sku.iterrows():
-                        if row['Paletes restantes'] <= 0:
-                            continue
-
-                        etd_row = row['ETD']
-                        mesma_data = etd_row == etd_base
-                        mesmo_mes = etd_row.month == etd_mes and etd_row.year == etd_ano
-
-                        if not (mesma_data or mesmo_mes):
-                            continue
-
-                        sku_atual = row['SKU']
-                        descricao = row['Descrição SKU']
-
-                        espaco = cap_sel - paletes_atual
-                        if espaco <= 0:
-                            break
-
-                        take = min(row['Paletes restantes'], espaco)
-                        caixas = take * row['CA/Paletes']
-
-                        selecionados.append({
-                            'SKU': sku_atual,
-                            'Descrição SKU': descricao,
-                            'WH': wh,
-                            'BC': bc,
-                            'Paletes atribuídos': take,
-                            'Caixas atribuídas': caixas,
-                            'ETD': row['ETD'],
-                            'Contêiner': cont_num
-                        })
-                        paletes_atual += take
-                        skus_usados.add(sku_atual)
-
-                        grupo_sku.at[idx, 'Paletes restantes'] -= take
-                        df.at[idx, 'Paletes restantes'] -= take
-
-                        if paletes_atual >= cap_sel:
-                            break
-
-                    if selecionados:
-                        contenedores.append(pd.DataFrame(selecionados))
-                        cont_num += 1
-                    else:
+                    espaco = cap_sel - paletes_atual
+                    if espaco <= 0:
                         break
+
+                    take = min(row['Paletes restantes'], espaco)
+                    caixas = take * row['CA/Paletes']
+
+                    selecionados.append({
+                        'SKU': row['SKU'],
+                        'Descrição SKU': row['Descrição SKU'],
+                        'WH': row['WH'],
+                        'BC': row['BC'],
+                        'Paletes atribuídos': take,
+                        'Caixas atribuídas': caixas,
+                        'ETD': row['ETD'],
+                        'Contêiner': cont_num
+                    })
+
+                    paletes_atual += take
+                    grupo_bc.at[idx, 'Paletes restantes'] -= take
+                    df.at[idx, 'Paletes restantes'] -= take
+
+                if selecionados:
+                    contenedores.append(pd.DataFrame(selecionados))
+                    cont_num += 1
+                else:
+                    break
 
     resultado = pd.concat(contenedores, ignore_index=True)
     resultado.to_excel('resultado_cubicaje.xlsx', index=False)
