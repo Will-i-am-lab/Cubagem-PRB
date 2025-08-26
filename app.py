@@ -37,8 +37,6 @@ def upload_file():
 def optimize():
     df = pd.read_pickle('temp_df.pkl')
     df['Paletes restantes'] = df['Paletes']
-    df['ETD'] = pd.to_datetime(df['ETD'])
-    df['ETD_MES'] = df['ETD'].dt.to_period('M')
     capacidad_por_sku = pd.read_pickle('default_capacidades.pkl')
 
     contenedores = []
@@ -50,66 +48,70 @@ def optimize():
         for bc in grupo_wh['BC'].unique():
             grupo_bc = grupo_wh[grupo_wh['BC'] == bc]
 
-            while grupo_bc['Paletes restantes'].sum() > 0:
-                grupo_bc = grupo_bc[grupo_bc['Paletes restantes'] > 0]
-                if grupo_bc.empty:
-                    break
+            for sku in grupo_bc['SKU'].unique():
+                grupo_sku = grupo_bc[grupo_bc['SKU'] == sku].copy()
 
-                etd_base = grupo_bc.sort_values('ETD').iloc[0]['ETD']
-                grupo_etd = grupo_bc[grupo_bc['ETD'] == etd_base]
+                if sku not in capacidad_por_sku:
+                    capacidad_por_sku[sku] = [11]
 
-                if grupo_etd['Paletes restantes'].sum() < 5:
-                    grupo_etd = grupo_bc[grupo_bc['ETD_MES'] == etd_base.to_period('M')]
+                while grupo_sku['Paletes restantes'].sum() > 0:
+                    sum_rem = grupo_sku['Paletes restantes'].sum()
+                    caps = capacidad_por_sku[sku]
+                    cap_sel = max(caps) if sum_rem >= max(caps) else min(caps, key=lambda c: abs(c - sum_rem))
 
-                paletes_atual = 0
-                selecionados = []
-                skus_usados = set()
+                    paletes_atual = 0
+                    selecionados = []
+                    skus_usados = set()
 
-                grupo_etd['Capacidade SKU'] = grupo_etd['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
-                grupo_etd = grupo_etd.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
-                                                  ascending=[True, False, False])
+                    grupo_sku['Capacidade SKU'] = grupo_sku['SKU'].map(lambda x: max(capacidad_por_sku.get(x, [11])))
+                    grupo_sku = grupo_sku.sort_values(['ETD', 'Capacidade SKU', 'Paletes restantes'],
+                                                      ascending=[True, False, False])
 
-                caps = grupo_etd['Capacidade SKU'].unique()
-                sum_rem = grupo_etd['Paletes restantes'].sum()
-                cap_sel = max(caps) if sum_rem >= max(caps) else min(caps, key=lambda c: abs(c - sum_rem))
+                    etd_base = grupo_sku['ETD'].iloc[0]
 
-                for idx, row in grupo_etd.iterrows():
-                    if row['Paletes restantes'] <= 0:
-                        continue
+                    for idx, row in grupo_sku.iterrows():
+                        if row['Paletes restantes'] <= 0 or row['ETD'] != etd_base:
+                            continue
 
-                    sku_atual = row['SKU']
-                    descricao = row['Descrição SKU']
-                    espaco = cap_sel - paletes_atual
-                    if espaco <= 0:
+                        sku_atual = row['SKU']
+                        descricao = row['Descrição SKU']
+
+                        if len(skus_usados) >= 5 and paletes_atual < cap_sel * 0.9:
+                            pass
+                        elif len(skus_usados) >= 5 and sku_atual not in skus_usados:
+                            continue
+
+                        espaco = cap_sel - paletes_atual
+                        if espaco <= 0:
+                            break
+
+                        take = min(row['Paletes restantes'], espaco)
+                        caixas = take * row['CA/Paletes']
+
+                        selecionados.append({
+                            'SKU': sku_atual,
+                            'Descrição SKU': descricao,
+                            'WH': wh,
+                            'BC': bc,
+                            'Paletes atribuídos': take,
+                            'Caixas atribuídas': caixas,
+                            'ETD': row['ETD'],
+                            'Contêiner': cont_num
+                        })
+                        paletes_atual += take
+                        skus_usados.add(sku_atual)
+
+                        grupo_sku.at[idx, 'Paletes restantes'] -= take
+                        df.at[idx, 'Paletes restantes'] -= take
+
+                        if paletes_atual >= cap_sel:
+                            break
+
+                    if selecionados:
+                        contenedores.append(pd.DataFrame(selecionados))
+                        cont_num += 1
+                    else:
                         break
-
-                    take = min(row['Paletes restantes'], espaco)
-                    caixas = take * row['CA/Paletes']
-
-                    selecionados.append({
-                        'SKU': sku_atual,
-                        'Descrição SKU': descricao,
-                        'WH': wh,
-                        'BC': bc,
-                        'Paletes atribuídos': take,
-                        'Caixas atribuídas': caixas,
-                        'ETD': row['ETD'].strftime('%Y-%m-%d'),
-                        'Contêiner': cont_num
-                    })
-                    paletes_atual += take
-                    skus_usados.add(sku_atual)
-
-                    grupo_etd.at[idx, 'Paletes restantes'] -= take
-                    df.at[idx, 'Paletes restantes'] -= take
-
-                    if paletes_atual >= cap_sel:
-                        break
-
-                if selecionados:
-                    contenedores.append(pd.DataFrame(selecionados))
-                    cont_num += 1
-                else:
-                    break
 
     resultado = pd.concat(contenedores, ignore_index=True)
     resultado.to_excel('resultado_cubicaje.xlsx', index=False)
@@ -137,7 +139,8 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheettext-align:center}}</style>
+https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
+<style>.table th,.table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
 <div class="container py-5">
@@ -158,4 +161,3 @@ def download_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
-
