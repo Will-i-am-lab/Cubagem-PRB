@@ -168,9 +168,7 @@ https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
 </body>
 </html>
     '''
-
-    '''
-
+ 
 @app.route('/download')
 def download_file():
     return send_file('resultado_cubicaje.xlsx', as_attachment=True)
