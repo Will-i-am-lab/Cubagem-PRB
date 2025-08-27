@@ -116,6 +116,19 @@ def optimize():
                     break
 
     resultado = pd.concat(contenedores, ignore_index=True)
+    # Adiciona linha com o volume total de caixas
+    volume_total_caixas = resultado['Caixas atribuídas'].sum()
+    linha_total = pd.DataFrame([{
+        'SKU': '',
+        'Descrição SKU': '',
+        'WH': '',
+        'BC': '',
+        'Paletes atribuídos': '',
+        'Caixas atribuídas': volume_total_caixas,
+        'ETD': '',
+        'Contêiner': 'TOTAL'
+    }])
+    resultado = pd.concat([resultado, linha_total], ignore_index=True)
     resultado.to_excel('resultado_cubicaje.xlsx', index=False)
 
     html = ''
