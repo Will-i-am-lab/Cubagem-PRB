@@ -12,7 +12,7 @@ def index():
 def upload_file():
     file = request.files['file']
     if file.filename.endswith('.xlsx'):
-        df = pd.read_excel(file, engine='openpyxl')
+        df = pd.read_excel(file)
         df['SKU'] = df['SKU'].astype(str).str.strip().str.upper()
         df['ETD'] = pd.to_datetime(df['ETD'])
         df['Paletes restantes'] = df['Paletes']
@@ -67,18 +67,7 @@ def optimize():
                 selecionados = []
                 paletes_atual = 0
 
-                skus_unicos = grupo_etd['SKU'].nunique()
-                capacidade_limite = None
-                if skus_unicos > 1:
-                    if bc == 'CBL':
-                        capacidade_limite = 11
-                    elif bc == 'TAG':
-                        capacidade_limite = 21
-
                 for cap in sorted(set(capacidad_por_sku.get(grupo_etd.iloc[0]['SKU'], [11])), reverse=True):
-                    if capacidade_limite:
-                        cap = min(cap, capacidade_limite)
-
                     paletes_atual = 0
                     selecionados = []
 
@@ -92,6 +81,8 @@ def optimize():
                             continue
 
                         espaco = cap - paletes_atual
+                        if limite_paletes is not None:
+                            espaco = min(espaco, limite_paletes - paletes_atual)
                         if espaco <= 0:
                             break
 
@@ -116,10 +107,10 @@ def optimize():
                         grupo_bc.at[idx, 'Paletes restantes'] -= take
                         df.at[idx, 'Paletes restantes'] -= take
 
-                        if paletes_atual == cap:
+                        if paletes_atual == cap or (limite_paletes is not None and paletes_atual == limite_paletes):
                             break
 
-                    if paletes_atual == cap:
+                    if paletes_atual == cap or (limite_paletes is not None and paletes_atual == limite_paletes):
                         contenedores.append(pd.DataFrame(selecionados))
                         cont_num += 1
                         break
@@ -152,7 +143,7 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
 <style>.table th,.table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
