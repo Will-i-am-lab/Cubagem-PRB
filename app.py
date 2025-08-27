@@ -127,7 +127,7 @@ def optimize():
         'Contêiner': 'TOTAL'
     }])
     resultado_df = pd.concat([resultado_df, linha_total], ignore_index=True)
-  resultado_df.to_excel('resultado_cubicaje.xlsx', index=False)
+    resultado_df.to_excel('resultado_cubicaje.xlsx', index=False)
 
 html = ''
 for i, cont in enumerate(pd.DataFrame(resultado).groupby('Contêiner'), 1):
