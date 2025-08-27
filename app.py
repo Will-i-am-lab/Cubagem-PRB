@@ -129,7 +129,29 @@ def optimize():
     resultado_df = pd.concat([resultado_df, linha_total], ignore_index=True)
     resultado_df.to_excel('resultado_cubicaje.xlsx', index=False)
 
-    return send_file('resultado_cubicaje.xlsx', as_attachment=True)
+    # Visualização HTML
+    html = resultado_df.dropna(subset=['SKU']).to_html(classes='table table-bordered table-striped text-center', index=False)
+    return f'''
+    <!DOCTYPE html>
+    <html lang="pt">
+    <head>
+        <meta charset="UTF-8">
+        <title>Resultado de Otimização</title>
+        https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
+        <style>.table th,.table td{{text-align:center}}</style>
+    </head>
+    <body class="bg-light">
+        <div class="container py-5">
+            <h1 class="mb-4 text-center">Otimização Concluída ✅</h1>
+            {html}
+            <div class="text-center mt-4">
+                <a href="/download" class="btn btn-success btn-lg">📥 Baixar Excel</a>
+                <a href="/" class="btn btn-secondary btn-lg ms-3">Voltar</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
 
 @app.route('/download')
 def download_file():
@@ -137,3 +159,4 @@ def download_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+
