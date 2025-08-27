@@ -12,7 +12,7 @@ def index():
 def upload_file():
     file = request.files['file']
     if file.filename.endswith('.xlsx'):
-        df = pd.read_excel(file)
+        df = pd.read_excel(file, engine='openpyxl')
         df['SKU'] = df['SKU'].astype(str).str.strip().str.upper()
         df['ETD'] = pd.to_datetime(df['ETD'])
         df['Paletes restantes'] = df['Paletes']
@@ -67,7 +67,18 @@ def optimize():
                 selecionados = []
                 paletes_atual = 0
 
+                skus_unicos = grupo_etd['SKU'].nunique()
+                capacidade_limite = None
+                if skus_unicos > 1:
+                    if bc == 'CBL':
+                        capacidade_limite = 11
+                    elif bc == 'TAG':
+                        capacidade_limite = 21
+
                 for cap in sorted(set(capacidad_por_sku.get(grupo_etd.iloc[0]['SKU'], [11])), reverse=True):
+                    if capacidade_limite:
+                        cap = min(cap, capacidade_limite)
+
                     paletes_atual = 0
                     selecionados = []
 
@@ -141,7 +152,7 @@ def optimize():
 <head>
 <meta charset="UTF-8">
 <title>Resultado de Otimização</title>
-https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>.table th,.table td{{text-align:center}}</style>
 </head>
 <body class="bg-light">
