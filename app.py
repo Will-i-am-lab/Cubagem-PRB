@@ -81,8 +81,6 @@ def optimize():
                             continue
 
                         espaco = cap - paletes_atual
-                        if limite_paletes is not None:
-                            espaco = min(espaco, limite_paletes - paletes_atual)
                         if espaco <= 0:
                             break
 
@@ -107,10 +105,10 @@ def optimize():
                         grupo_bc.at[idx, 'Paletes restantes'] -= take
                         df.at[idx, 'Paletes restantes'] -= take
 
-                        if paletes_atual == cap or (limite_paletes is not None and paletes_atual == limite_paletes):
+                        if paletes_atual == cap:
                             break
 
-                    if paletes_atual == cap or (limite_paletes is not None and paletes_atual == limite_paletes):
+                    if paletes_atual == cap:
                         contenedores.append(pd.DataFrame(selecionados))
                         cont_num += 1
                         break
