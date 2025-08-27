@@ -130,27 +130,45 @@ def optimize():
     resultado_df.to_excel('resultado_cubicaje.xlsx', index=False)
 
     # Visualização HTML
-    html = resultado_df.dropna(subset=['SKU']).to_html(classes='table table-bordered table-striped text-center', index=False)
+     html = ''
+    for i, cont in enumerate(contenedores, 1):
+        wh_name = cont['WH'].iloc[0]
+        total_paletes = cont['Paletes atribuídos'].sum()
+        table = cont.to_html(classes='table table-bordered table-striped text-center', index=False)
+        table = table.replace('<thead>', '<thead class="text-center">')
+
+        html += f'''
+<div class="card mb-4 shadow-sm">
+<div class="card-body">
+<h3 class="card-title">Contêiner {i} - WH: {wh_name}</h3>
+<p class="fw-bold">Total de Paletes: {total_paletes}</p>
+{table}
+</div>
+</div>
+        '''
+
     return f'''
-    <!DOCTYPE html>
-    <html lang="pt">
-    <head>
-        <meta charset="UTF-8">
-        <title>Resultado de Otimização</title>
-        https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
-        <style>.table th,.table td{{text-align:center}}</style>
-    </head>
-    <body class="bg-light">
-        <div class="container py-5">
-            <h1 class="mb-4 text-center">Otimização Concluída ✅</h1>
-            {html}
-            <div class="text-center mt-4">
-                <a href="/download" class="btn btn-success btn-lg">📥 Baixar Excel</a>
-                <a href="/" class="btn btn-secondary btn-lg ms-3">Voltar</a>
-            </div>
-        </div>
-    </body>
-    </html>
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Resultado de Otimização</title>
+https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
+<style>.table th,.table td{{text-align:center}}</style>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+<h1 class="mb-4 text-center">Otimização Concluída ✅</h1>
+{html}
+<div class="text-center mt-4">
+<a href="/download" class="btn btn-success btn-lg">📥 Baixar Excel</a>
+<a href="/" class="btn btn-secondary btn-lg ms-3">Voltar</a>
+</div>
+</div>
+</body>
+</html>
+    '''
+
     '''
 
 @app.route('/download')
